@@ -1,0 +1,44 @@
+name: SVV Verification Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  requirement-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Check SRS Document Exists
+        run: test -f requirements/SRS.md
+
+      - name: Check Defect Taxonomy Exists
+        run: test -f requirements/defect-taxonomy.md
+
+      - name: Check GitHub Issues Log Exists
+        run: test -f requirements/github-issues-log.md
+
+  alloy-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Check Alloy Model Exists
+        run: test -f alloy-model/railway.als
+
+      - name: Check Counterexample Report Exists
+        run: test -f alloy-model/counterexample-report.md
+
+  validation-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Check Validation Checklist Exists
+        run: test -f validation/validation-checklist.md
+
+      - name: Check VDM Spec Exists
+        run: test -f vdm-spec/RailwaySystem.vdmsl
