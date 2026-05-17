@@ -1,0 +1,92 @@
+-- Railway Reservation System: VDM-SL Specification
+
+types
+  PassengerId = token;
+  SeatId      = token;
+  TrainId     = token;
+  BookingId   = token;
+  TicketId    = token;
+
+  Status = <Available> | <Reserved> | <Confirmed> | <Cancelled> | <WaitingList>;
+
+  Booking :: bid : BookingId
+             pid : PassengerId
+             sid : SeatId;
+
+  Ticket  :: tid : TicketId
+             bid : BookingId
+             sid : SeatId
+             pid : PassengerId;
+
+state RailwaySystem of
+  passengers  : map PassengerId to bool;
+  seatStatus  : map SeatId to Status;
+  bookings    : map BookingId to Booking;
+  tickets     : map TicketId to Ticket;
+
+inv mk_RailwaySystem(passengers, seatStatus, bookings, tickets) ==
+  -- INV-1: All bookings reference existing passengers
+  (forall b in set rng bookings & b.pid in set dom passengers) and
+  -- INV-2: No two confirmed bookings share same seat
+  (forall b1, b2 in set rng bookings &
+      b1 <> b2 and seatStatus(b1.sid) = <Confirmed>
+      and seatStatus(b2.sid) = <Confirmed>
+      => b1.sid <> b2.sid) and
+  -- INV-3: Every ticket references a confirmed booking
+  (forall t in set rng tickets &
+      t.bid in set dom bookings and
+      seatStatus(bookings(t.bid).sid) = <Confirmed>)
+
+init sys == sys = mk_RailwaySystem({|->}, {|->}, {|->}, {|->})
+
+operations
+
+  -- OPERATION 1: bookTicket
+  bookTicket(pid : PassengerId, sid : SeatId, bid : BookingId)
+  ext wr seatStatus : map SeatId to Status
+      wr bookings   : map BookingId to Booking
+      rd passengers : map PassengerId to bool
+  pre
+    pid in set dom passengers and
+    sid in set dom seatStatus and
+    seatStatus(sid) = <Available> and
+    bid not in set dom bookings;
+  post
+    seatStatus = seatStatus~ ++ {sid |-> <Reserved>} and
+    bookings   = bookings~   ++ {bid |-> mk_Booking(bid, pid, sid)};
+
+  -- OPERATION 2: confirmPayment
+  confirmPayment(bid : BookingId, tid : TicketId)
+  ext wr seatStatus : map SeatId to Status
+      wr tickets    : map TicketId to Ticket
+      rd bookings   : map BookingId to Booking
+  pre
+    bid in set dom bookings and
+    seatStatus(bookings(bid).sid) = <Reserved> and
+    tid not in set dom tickets;
+  post
+    let sid = bookings(bid).sid,
+        pid = bookings(bid).pid in
+      seatStatus = seatStatus~ ++ {sid |-> <Confirmed>} and
+      tickets    = tickets~    ++ {tid |-> mk_Ticket(tid, bid, sid, pid)};
+
+  -- OPERATION 3: cancelTicket
+  cancelTicket(pid : PassengerId, bid : BookingId)
+  ext wr seatStatus : map SeatId to Status
+      rd bookings   : map BookingId to Booking
+      rd passengers : map PassengerId to bool
+  pre
+    pid in set dom passengers and
+    bid in set dom bookings and
+    bookings(bid).pid = pid and
+    seatStatus(bookings(bid).sid) = <Confirmed>;
+  post
+    seatStatus = seatStatus~ ++ {bookings(bid).sid |-> <Cancelled>};
+
+  -- OPERATION 4: checkAvailability (pure)
+  pure checkAvailability(sid : SeatId) r : Status
+  rd seatStatus : map SeatId to Status
+  pre  sid in set dom seatStatus;
+  post r = seatStatus(sid);
+
+end
