@@ -1,0 +1,107 @@
+-- Railway Reservation System: Z Notation Formal Model
+
+[PASSENGER_ID, SEAT_ID, TRAIN_ID, TICKET_ID, BOOKING_ID]
+
+STATUS ::= Available | Reserved | Confirmed | Cancelled | WaitingList
+CLASS  ::= Sleeper | AC | General
+
+-- SYSTEM STATE SCHEMA
+RailwaySystem
+_____________________________________________
+passengers   : P PASSENGER_ID
+trains       : P TRAIN_ID
+seats        : SEAT_ID --> TRAIN_ID
+seatStatus   : SEAT_ID --> STATUS
+bookings     : BOOKING_ID --> PASSENGER_ID
+booked       : BOOKING_ID --> SEAT_ID
+tickets      : TICKET_ID --> BOOKING_ID
+capacity     : TRAIN_ID --> N
+_____________________________________________
+-- INVARIANT 1: Seat belongs to valid train
+ran seats ⊆ trains
+
+-- INVARIANT 2: No two confirmed bookings share same seat
+∀ b1, b2 : dom bookings •
+    b1 ≠ b2 ∧ seatStatus(booked(b1)) = Confirmed
+            ∧ seatStatus(booked(b2)) = Confirmed
+    ⇒ booked(b1) ≠ booked(b2)
+
+-- INVARIANT 3: Every ticket linked to confirmed booking
+∀ t : dom tickets •
+    seatStatus(booked(tickets(t))) = Confirmed
+
+-- INVARIANT 4: Confirmed seats per train <= capacity
+∀ tr : trains •
+    #{s : dom seatStatus | seats(s) = tr ∧ seatStatus(s) = Confirmed}
+    ≤ capacity(tr)
+
+-- OPERATION 1: BookTicket
+BookTicket
+_____________________________________________
+ΔRailwaySystem
+p? : PASSENGER_ID
+s? : SEAT_ID
+b! : BOOKING_ID
+_____________________________________________
+-- PRE-CONDITIONS
+p? ∈ passengers
+s? ∈ dom seatStatus
+seatStatus(s?) = Available
+b! ∉ dom bookings
+
+-- POST-CONDITIONS
+seatStatus' = seatStatus ⊕ {s? ↦ Reserved}
+bookings'   = bookings   ∪ {b! ↦ p?}
+booked'     = booked     ∪ {b! ↦ s?}
+passengers' = passengers
+trains'     = trains
+tickets'    = tickets
+
+-- OPERATION 2: ConfirmPayment
+ConfirmPayment
+_____________________________________________
+ΔRailwaySystem
+b? : BOOKING_ID
+t! : TICKET_ID
+_____________________________________________
+-- PRE-CONDITIONS
+b? ∈ dom bookings
+seatStatus(booked(b?)) = Reserved
+t! ∉ dom tickets
+
+-- POST-CONDITIONS
+seatStatus' = seatStatus ⊕ {booked(b?) ↦ Confirmed}
+tickets'    = tickets ∪ {t! ↦ b?}
+bookings'   = bookings
+booked'     = booked
+
+-- OPERATION 3: CancelTicket
+CancelTicket
+_____________________________________________
+ΔRailwaySystem
+p? : PASSENGER_ID
+b? : BOOKING_ID
+_____________________________________________
+-- PRE-CONDITIONS
+b? ∈ dom bookings
+bookings(b?) = p?
+seatStatus(booked(b?)) = Confirmed
+
+-- POST-CONDITIONS
+seatStatus' = seatStatus ⊕ {booked(b?) ↦ Cancelled}
+tickets'    = {t : dom tickets | tickets(t) ≠ b?}
+bookings'   = bookings
+booked'     = booked
+
+-- OPERATION 4: CheckAvailability
+CheckAvailability
+_____________________________________________
+ΞRailwaySystem
+s? : SEAT_ID
+status! : STATUS
+_____________________________________________
+-- PRE-CONDITIONS
+s? ∈ dom seatStatus
+
+-- POST-CONDITIONS
+status! = seatStatus(s?)
